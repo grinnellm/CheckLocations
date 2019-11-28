@@ -1,0 +1,26 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1574968456217.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "A4E4BD6F",
+    "lastKnownWriteTime" : 1574969989,
+    "last_content_update" : 1574969989165,
+    "path" : "C:/Grinnell/Git/locations/Init.R",
+    "project_path" : "Init.R",
+    "properties" : {
+        "cursorPosition" : "6,0",
+        "scrollLine" : "0",
+        "tempName" : "Untitled1"
+    },
+    "read_only" : false,
+    "read_only_alternatives" : [
+    ],
+    "relative_order" : 2,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

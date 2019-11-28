@@ -1,0 +1,27 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1574966632821.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "33|67|46|0|\n",
+    "hash" : "0",
+    "id" : "67944067",
+    "lastKnownWriteTime" : 1574978242,
+    "last_content_update" : 1574978242598,
+    "path" : "C:/Grinnell/Git/locations/Locations.R",
+    "project_path" : "Locations.R",
+    "properties" : {
+        "cursorPosition" : "127,0",
+        "docOutlineVisible" : "1",
+        "scrollLine" : "111",
+        "tempName" : "Untitled1"
+    },
+    "read_only" : false,
+    "read_only_alternatives" : [
+    ],
+    "relative_order" : 1,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}
