@@ -82,6 +82,12 @@ outCRS <- "+proj=aea +lat_1=50 +lat_2=58.5 +lat_0=45 +lon_0=-126 +x_0=1000000
 # Geographic projection
 geoProj <- "Projection: BC Albers (NAD 1983)"
 
+# Output location for maps
+mapDir <- "Maps"
+
+# Output location for files
+csvDir <- "CSVs"
+
 ##### Parameters #####
 
 # Year range to include data (data starts at 1928; 1951 for stock assessment)
@@ -106,6 +112,18 @@ shapesLoc <- list(
 # Load helper functions
 source( file=file.path( "..", "HerringFunctions", "Functions.R") )
 
+# Remove the output directory: maps
+if( mapDir %in% list.files() ) unlink( mapDir, recursive=TRUE )
+
+# Create a directory to store maps
+dir.create( mapDir )
+
+# Remove the output directory: text
+if( csvDir %in% list.files() ) unlink( csvDir, recursive=TRUE )
+
+# Create a directory to store text
+dir.create( csvDir )
+
 ##### Data #####
 
 # World shapefile
@@ -118,12 +136,15 @@ areas <- LoadAreaData( where=areaLoc ) %>%
 # Get BC land data etc (for plots)
 shapes <- LoadShapefiles( where=shapesLoc, a=areas )
 
-##### Main ##### 
+##### Main #####
 
 # Convert areas to a spatial object
 areasSF <- areas %>%
-  st_as_sf( coords=c("Longitude", "Latitude"), crs=4326 ) #%>%
-  # st_transform( 3347 )
+  st_as_sf( coords=c("Longitude", "Latitude"), crs=4326 ) %>%
+  select( SAR, Region, StatArea, Section, LocationCode, LocationName ) %>%
+  mutate( Section=formatC(Section, width=3, flag="0"),
+          StatArea=formatC(StatArea, width=2, flag="0") ) #%>%
+# st_transform( 3347 )
 
 # Convert polygons to a spatial object
 sectionsSF <- shapes$secAllSPDF %>%
@@ -138,6 +159,10 @@ mapview( areasSF, zcol="Section", layer.name="Section" )
 
 # Show points and polygons on a map
 MakeMap <- function( pts, polys, sec ) {
+  browser()
+  # Add a column for inside/outside pts
+  pts <- pts %>%
+    mutate( Inside="Ok" )
   # Subset points
   ptsSub <- pts %>%
     filter( Section==sec ) %>%
@@ -145,54 +170,79 @@ MakeMap <- function( pts, polys, sec ) {
   # Subset polygons
   polysSub <- polys %>%
     filter( Section==sec )
-  # Spatial overlay -- which points are in the polygon but aren't classified so
+  # Spatial overlay -- which points are in the polygon
   ptsOver <- over( x=as(pts, "Spatial"), y=as(polysSub, "Spatial") ) %>%
     as_tibble( ) %>%
     rename( SectionPolys=Section ) %>%
     mutate( LocationCode=pts$LocationCode,
             LocationName=pts$LocationName,
-            SectionPts=pts$Section ) %>%
-    filter( !is.na(SectionPolys) ) %>%
-    filter( SectionPolys!=SectionPts )
-  # Get 'wrong' points
-  badPts <- pts %>%
-    filter( LocationCode %in% ptsOver$LocationCode )
+            SectionPts=pts$Section )
+  # Indentify points outside the boundary
+  ptsOutside <- ptsOver %>%
+    filter( is.na(SectionPolys) & SectionPts==sec )
+  # Identify points inside the boundary that aren't classified as such
+  ptsInside <- ptsOver %>%
+    filter( !is.na(SectionPolys), SectionPolys!=SectionPts )
   # Add these points to the subset of points
-  ptsSub <- rbind( ptsSub, badPts )
+  ptsSub <- ptsSub %>%
+    rbind( y=filter( pts, LocationCode%in%ptsInside$LocationCode) ) %>%
+    mutate( Inside=ifelse(LocationCode%in%ptsInside$LocationCode, "Yes",
+                          Inside),
+            Inside=ifelse(LocationCode%in%ptsOutside$LocationCode, "No",
+                          Inside) )
+  # Select bad pts
+  badPts <- ptsSub %>%
+    filter( Inside!="Ok" )
+  # Write bad points to disc if they exist
+  if( nrow(badPts) >= 1 )
+    write_csv( x=badPts, path=file.path(csvDir, paste(sec, "csv", sep=".")) )
   # Determine extent: points
   extPts <- extent( ptsSub )
   # Determine extent: polys
   extPolys <- extent( polysSub )
   # Determine the overall extentext
-  ext <- c( left=min(extPts@xmin, extPolys@xmin),
-            bottom=min(extPts@ymin, extPolys@ymin),
-            right=max(extPts@xmax, extPolys@xmax),
-            top=max(extPts@ymax, extPolys@ymax) )
+  ext <- c( left=min(extPts@xmin, extPolys@xmin, na.rm=TRUE),
+            bottom=min(extPts@ymin, extPolys@ymin, na.rm=TRUE),
+            right=max(extPts@xmax, extPolys@xmax, na.rm=TRUE),
+            top=max(extPts@ymax, extPolys@ymax, na.rm=TRUE) )
+  # Expand x to give a buffer
+  xBuf <- 0.05 * ( ext["left"] - ext["right"] )
+  # Expand y to give a buffer
+  yBuf <- 0.05 * ( ext["top"] - ext["bottom"] )
+  # Expand the extent
+  extBuf <- c( ext["left"] + xBuf,
+               ext["bottom"] - yBuf,
+               ext["right"] - xBuf,
+               ext["top"] + yBuf )
   # Grab the map data
-  map <- get_map( ext )
+  map <- get_map( extBuf )
   # Plot the map
-  gmap1 <- ggmap( map ) +
+  gmap <- ggmap( map ) +
     geom_sf( data=polysSub, colour="blue", fill="transparent",
              inherit.aes=FALSE ) +
-    geom_sf( data=ptsSub, mapping=aes(fill=Section), colour="transparent",
-             shape=21, inherit.aes=FALSE ) +
+    geom_sf( data=ptsSub, mapping=aes(fill=Section, shape=Inside),
+             colour="transparent", shape=21, inherit.aes=FALSE, size=3,
+             alpha=0.75 ) +
     scale_fill_viridis_d( ) +
-    labs( title=paste("Section", sec), x="Longitude", y="Latitude" )
-  print( gmap1 )
-  # Plot the map
-  gmap2 <- ggplot( data=canada ) +
-    geom_sf( colour="transparent", fill="antiquewhite") +
-    geom_sf( data=polysSub, colour="blue", fill="transparent" ) +
-    geom_sf( data=ptsSub, mapping=aes(fill=Section) ) +
-    coord_sf( xlim=c(ext["left"], ext["right"]),
-              ylim=c(ext["bottom"], ext["top"]) ) +
-    labs( title=paste("Section", sec), x="Longitude", y="Latitude" )
-  print( gmap2 )
-  browser()
+    geom_sf_text( data=badPts, mapping=aes(label=LocationCode),
+                   inherit.aes=FALSE) +
+    labs( title=paste("Section", sec), x="Longitude", y="Latitude" ) +
+    ggsave( filename=file.path(mapDir, paste(sec, "png", sep=".")), height=9,
+            width=9 )
+  # # Plot the map
+  # gmap2 <- ggplot( data=canada ) +
+  #   geom_sf( colour="transparent", fill="antiquewhite") +
+  #   geom_sf( data=polysSub, colour="blue", fill="transparent" ) +
+  #   geom_sf( data=ptsSub, mapping=aes(fill=Section) ) +
+  #   coord_sf( xlim=c(extBuf["left"], extBuf["right"]),
+  #             ylim=c(extBuf["bottom"], extBuf["top"]) ) +
+  #   labs( title=paste("Section", sec), x="Longitude", y="Latitude" )
+  # print( gmap2 )
 }  # End MakeMap function
 
-# Show the map
-MakeMap( pts=areasSF, polys=sectionsSF, sec="142" )
+# Loop over sections
+# for( iSec in unique(areasSF$Section) )
+  MakeMap( pts=areasSF, polys=sectionsSF, sec="239" )  # "078"
 
 ##### Tables #####
 
@@ -206,4 +256,4 @@ MakeMap( pts=areasSF, polys=sectionsSF, sec="142" )
 ##### End ##### 
 
 # Print end of file message and elapsed time
-cat( "End of file:" ) ;  print( Sys.time( ) - sTime )
+cat( "End of file: " ) ;  print( Sys.time( ) - sTime )
