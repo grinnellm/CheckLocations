@@ -48,7 +48,7 @@ UsePackages <- function( pkgs, locn="https://cran.rstudio.com/" ) {
 
 # Make packages available
 UsePackages( pkgs=c("tidyverse", "RODBC", "sp", "rgdal", "rgeos", "raster",
-                    "sf") )
+                    "sf", "rnaturalearth", "rnaturalearthdata") )
 
 ##### Controls ##### 
 
@@ -108,8 +108,12 @@ source( file=file.path( "..", "HerringFunctions", "Functions.R") )
 
 ##### Data #####
 
+# World shapefile
+canada <- ne_countries( scale="large", country="canada", returnclass="sf" )
+
 # Load herring areas
-areas <- LoadAreaData( where=areaLoc )
+areas <- LoadAreaData( where=areaLoc ) %>%
+  filter( Longitude<0, Latitude>0 )
 
 # Get BC land data etc (for plots)
 shapes <- LoadShapefiles( where=shapesLoc, a=areas )
@@ -118,13 +122,77 @@ shapes <- LoadShapefiles( where=shapesLoc, a=areas )
 
 # Convert areas to a spatial object
 areasSF <- areas %>%
-  st_as_sf( coords=c("Longitude", "Latitude"), crs=4326 ) %>%
-  st_transform( 3347 )
+  st_as_sf( coords=c("Longitude", "Latitude"), crs=4326 ) #%>%
+  # st_transform( 3347 )
+
+# Convert polygons to a spatial object
+sectionsSF <- shapes$secAllSPDF %>%
+  st_as_sf( coords=c("Longitude", "Latitude"), crs=3347 ) %>%
+  st_transform( 4326 )
 
 ##### Figures #####
 
+# Show the maps (interactive)
+mapview( areasSF, zcol="Section", layer.name="Section" )
+# mapview( shapes$secAllSPDF, zcol="Section", layer.name="Section" )
+
+# Show points and polygons on a map
+MakeMap <- function( pts, polys, sec ) {
+  # Subset points
+  ptsSub <- pts %>%
+    filter( Section==sec ) %>%
+    mutate( Section=as.character(Section) )
+  # Subset polygons
+  polysSub <- polys %>%
+    filter( Section==sec )
+  # Spatial overlay -- which points are in the polygon but aren't classified so
+  ptsOver <- over( x=as(pts, "Spatial"), y=as(polysSub, "Spatial") ) %>%
+    as_tibble( ) %>%
+    rename( SectionPolys=Section ) %>%
+    mutate( LocationCode=pts$LocationCode,
+            LocationName=pts$LocationName,
+            SectionPts=pts$Section ) %>%
+    filter( !is.na(SectionPolys) ) %>%
+    filter( SectionPolys!=SectionPts )
+  # Get 'wrong' points
+  badPts <- pts %>%
+    filter( LocationCode %in% ptsOver$LocationCode )
+  # Add these points to the subset of points
+  ptsSub <- rbind( ptsSub, badPts )
+  # Determine extent: points
+  extPts <- extent( ptsSub )
+  # Determine extent: polys
+  extPolys <- extent( polysSub )
+  # Determine the overall extentext
+  ext <- c( left=min(extPts@xmin, extPolys@xmin),
+            bottom=min(extPts@ymin, extPolys@ymin),
+            right=max(extPts@xmax, extPolys@xmax),
+            top=max(extPts@ymax, extPolys@ymax) )
+  # Grab the map data
+  map <- get_map( ext )
+  # Plot the map
+  gmap1 <- ggmap( map ) +
+    geom_sf( data=polysSub, colour="blue", fill="transparent",
+             inherit.aes=FALSE ) +
+    geom_sf( data=ptsSub, mapping=aes(fill=Section), colour="transparent",
+             shape=21, inherit.aes=FALSE ) +
+    scale_fill_viridis_d( ) +
+    labs( title=paste("Section", sec), x="Longitude", y="Latitude" )
+  print( gmap1 )
+  # Plot the map
+  gmap2 <- ggplot( data=canada ) +
+    geom_sf( colour="transparent", fill="antiquewhite") +
+    geom_sf( data=polysSub, colour="blue", fill="transparent" ) +
+    geom_sf( data=ptsSub, mapping=aes(fill=Section) ) +
+    coord_sf( xlim=c(ext["left"], ext["right"]),
+              ylim=c(ext["bottom"], ext["top"]) ) +
+    labs( title=paste("Section", sec), x="Longitude", y="Latitude" )
+  print( gmap2 )
+  browser()
+}  # End MakeMap function
+
 # Show the map
-mapview( areasSF )
+MakeMap( pts=areasSF, polys=sectionsSF, sec="142" )
 
 ##### Tables #####
 
