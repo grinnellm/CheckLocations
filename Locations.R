@@ -159,7 +159,6 @@ mapview( areasSF, zcol="Section", layer.name="Section" )
 
 # Show points and polygons on a map
 MakeMap <- function( pts, polys, sec ) {
-  browser()
   # Add a column for inside/outside pts
   pts <- pts %>%
     mutate( Inside="Ok" )
@@ -170,32 +169,39 @@ MakeMap <- function( pts, polys, sec ) {
   # Subset polygons
   polysSub <- polys %>%
     filter( Section==sec )
-  # Spatial overlay -- which points are in the polygon
-  ptsOver <- over( x=as(pts, "Spatial"), y=as(polysSub, "Spatial") ) %>%
-    as_tibble( ) %>%
-    rename( SectionPolys=Section ) %>%
-    mutate( LocationCode=pts$LocationCode,
-            LocationName=pts$LocationName,
-            SectionPts=pts$Section )
-  # Indentify points outside the boundary
-  ptsOutside <- ptsOver %>%
-    filter( is.na(SectionPolys) & SectionPts==sec )
-  # Identify points inside the boundary that aren't classified as such
-  ptsInside <- ptsOver %>%
-    filter( !is.na(SectionPolys), SectionPolys!=SectionPts )
-  # Add these points to the subset of points
-  ptsSub <- ptsSub %>%
-    rbind( y=filter( pts, LocationCode%in%ptsInside$LocationCode) ) %>%
-    mutate( Inside=ifelse(LocationCode%in%ptsInside$LocationCode, "Yes",
-                          Inside),
-            Inside=ifelse(LocationCode%in%ptsOutside$LocationCode, "No",
-                          Inside) )
-  # Select bad pts
-  badPts <- ptsSub %>%
-    filter( Inside!="Ok" )
-  # Write bad points to disc if they exist
-  if( nrow(badPts) >= 1 )
-    write_csv( x=badPts, path=file.path(csvDir, paste(sec, "csv", sep=".")) )
+  # If there is a polygon
+  if( nrow(polysSub) >= 1 ) {
+    # Spatial overlay -- which points are in the polygon
+    ptsOver <- over( x=as(pts, "Spatial"), y=as(polysSub, "Spatial") ) %>%
+      as_tibble( ) %>%
+      rename( SectionPolys=Section ) %>%
+      mutate( LocationCode=pts$LocationCode,
+              LocationName=pts$LocationName,
+              SectionPts=pts$Section )
+    # Indentify points outside the boundary
+    ptsOutside <- ptsOver %>%
+      filter( is.na(SectionPolys) & SectionPts==sec )
+    # Identify points inside the boundary that aren't classified as such
+    ptsInside <- ptsOver %>%
+      filter( !is.na(SectionPolys), SectionPolys!=SectionPts )
+    # Add these points to the subset of points
+    ptsSub <- ptsSub %>%
+      rbind( y=filter( pts, LocationCode%in%ptsInside$LocationCode) ) %>%
+      mutate( Inside=ifelse(LocationCode%in%ptsInside$LocationCode, "Yes",
+                            Inside),
+              Inside=ifelse(LocationCode%in%ptsOutside$LocationCode, "No",
+                            Inside) )
+    # Select bad pts
+    badPts <- ptsSub %>%
+      filter( Inside!="Ok" )
+    # Write bad points to disc if they exist
+    if( nrow(badPts) >= 1 )
+      write_csv( x=badPts, path=file.path(csvDir, paste(sec, "csv", sep=".")) )
+  } else { # End if polygons, otherwise
+    # Make a dummy for the plot
+    badPts <- ptsSub %>%
+      filter( Inside!="Ok" )
+  }  # End if no polygons
   # Determine extent: points
   extPts <- extent( ptsSub )
   # Determine extent: polys
@@ -225,7 +231,7 @@ MakeMap <- function( pts, polys, sec ) {
              alpha=0.75 ) +
     scale_fill_viridis_d( ) +
     geom_sf_text( data=badPts, mapping=aes(label=LocationCode),
-                   inherit.aes=FALSE) +
+                  inherit.aes=FALSE) +
     labs( title=paste("Section", sec), x="Longitude", y="Latitude" ) +
     ggsave( filename=file.path(mapDir, paste(sec, "png", sep=".")), height=9,
             width=9 )
@@ -241,8 +247,8 @@ MakeMap <- function( pts, polys, sec ) {
 }  # End MakeMap function
 
 # Loop over sections
-# for( iSec in unique(areasSF$Section) )
-  MakeMap( pts=areasSF, polys=sectionsSF, sec="239" )  # "078"
+for( iSec in unique(areasSF$Section) )
+  MakeMap( pts=areasSF, polys=sectionsSF, sec=iSec )  # "078" "239"
 
 ##### Tables #####
 
