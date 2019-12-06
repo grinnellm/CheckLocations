@@ -48,7 +48,8 @@ UsePackages <- function( pkgs, locn="https://cran.rstudio.com/" ) {
 
 # Make packages available
 UsePackages( pkgs=c("tidyverse", "RODBC", "sp", "rgdal", "rgeos", "raster",
-                    "sf", "rnaturalearth", "rnaturalearthdata") )
+                    "sf", "rnaturalearth", "rnaturalearthdata", "mapview",
+                    "ggmap") )
 
 ##### Controls ##### 
 
@@ -247,8 +248,8 @@ MakeMap <- function( pts, polys, sec ) {
 }  # End MakeMap function
 
 # Loop over sections
-for( iSec in unique(areasSF$Section) )
-  MakeMap( pts=areasSF, polys=sectionsSF, sec=iSec )  # "078" "239"
+for( iSec in c("078", "239") )  # unique(areasSF$Section) c("078", "239")
+  MakeMap( pts=areasSF, polys=sectionsSF, sec=iSec )
 
 ##### Tables #####
 
