@@ -248,7 +248,7 @@ MakeMap <- function( pts, polys, sec ) {
 }  # End MakeMap function
 
 # Loop over sections
-for( iSec in c("078", "239") )  # unique(areasSF$Section) c("078", "239")
+for( iSec in c("078", "239", "123") )  # unique(areasSF$Section) c("078", "239")
   MakeMap( pts=areasSF, polys=sectionsSF, sec=iSec )
 
 ##### Tables #####
