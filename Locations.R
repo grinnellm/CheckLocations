@@ -49,12 +49,12 @@ UsePackages <- function( pkgs, locn="https://cran.rstudio.com/" ) {
 # Make packages available
 UsePackages( pkgs=c("tidyverse", "RODBC", "sp", "rgdal", "rgeos", "raster",
                     "sf", "rnaturalearth", "rnaturalearthdata", "mapview",
-                    "ggmap") )
+                    "ggmap", "maptools") )
 
 ##### Controls ##### 
 
 # Sections to investigate
-iSections <- c("078", "239", "123")  # unique(areasSF$Section) c("078", "239") 
+iSections <- unique(areasSF$Section) 
 
 # Select region(s): major (HG, PRD, CC, SoG, WCVI); minor (A27, A2W, JS); All
 region <- "All"
@@ -266,3 +266,4 @@ for( iSec in iSections )  MakeMap( pts=areasSF, polys=sectionsSF, sec=iSec )
 
 # Print end of file message and elapsed time
 cat( "End of file: " ) ;  print( Sys.time( ) - sTime )
+
