@@ -18,7 +18,7 @@
 # 32-bit R to access the MS Access database (not available in RStudio).
 # 
 # Notes: 
-# 
+# source(file="Locations.R")
 # 
 # References:
 # 
