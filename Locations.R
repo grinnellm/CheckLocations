@@ -50,7 +50,7 @@ UsePackages <- function( pkgs, locn="https://cran.rstudio.com/" ) {
 # Make packages available
 UsePackages( pkgs=c("tidyverse", "RODBC", "sp", "rgdal", "rgeos", "raster",
                     "sf", "rnaturalearth", "rnaturalearthdata", "mapview",
-                    "ggmap") )
+                    "ggmap", "maptools") )
 
 ##### Controls ##### 
 
@@ -270,3 +270,4 @@ for( iSec in iSections )  MakeMap( pts=areasSF, polys=sectionsSF, sec=iSec )
 
 # Print end of file message and elapsed time
 cat( "End of file: " ) ;  print( Sys.time( ) - sTime )
+
