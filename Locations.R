@@ -54,8 +54,8 @@ UsePackages( pkgs=c("tidyverse", "RODBC", "sp", "rgdal", "rgeos", "raster",
 
 ##### Controls ##### 
 
-# Sections to investigate
-# iSections <- c("078", "239", "123")  # unique(areasSF$Section) c("078", "239") 
+# Sections to investigate: specify sections as c("078", "239"), or type "All"
+iSections <- c("078", "239")
 
 # Select region(s): major (HG, PRD, CC, SoG, WCVI); minor (A27, A2W, JS); All
 region <- "All"
@@ -251,9 +251,11 @@ MakeMap <- function( pts, polys, sec ) {
   # print( gmap2 )
 }  # End MakeMap function
 
+# Update sections if All
+if( "All" %in% iSections )  iSections <- unique( areasSF$Section )
+
 # Loop over sections
-for( iSec in unique(areasSF$Section) )
-  MakeMap( pts=areasSF, polys=sectionsSF, sec=iSec )
+for( iSec in iSections )  MakeMap( pts=areasSF, polys=sectionsSF, sec=iSec )
 
 ##### Tables #####
 
