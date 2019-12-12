@@ -14,7 +14,8 @@
 # Investigate Locations in the new and old locations tables.
 # 
 # Requirements: 
-# Access to the database on the shared drive, and herring shapefiles.
+# Access to the database on the shared drive, and herring shapefiles. Use
+# 32-bit R to access the MS Access database (not available in RStudio).
 # 
 # Notes: 
 # 
