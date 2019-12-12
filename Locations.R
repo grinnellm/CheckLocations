@@ -14,7 +14,8 @@
 # Investigate Locations in the new and old locations tables.
 # 
 # Requirements: 
-# Access to the database on the shared drive, and herring shapefiles.
+# Access to the database on the shared drive, and herring shapefiles. Use
+# 32-bit R to access the MS Access database (not available in RStudio).
 # 
 # Notes: 
 # source(file="Locations.R")
@@ -54,7 +55,11 @@ UsePackages( pkgs=c("tidyverse", "RODBC", "sp", "rgdal", "rgeos", "raster",
 ##### Controls ##### 
 
 # Sections to investigate
+<<<<<<< HEAD
 iSections <- unique(areasSF$Section) 
+=======
+# iSections <- c("078", "239", "123")  # unique(areasSF$Section) c("078", "239") 
+>>>>>>> bb6fa059dddec61bd9194a8b1ab262652fb51d0e
 
 # Select region(s): major (HG, PRD, CC, SoG, WCVI); minor (A27, A2W, JS); All
 region <- "All"
@@ -251,7 +256,8 @@ MakeMap <- function( pts, polys, sec ) {
 }  # End MakeMap function
 
 # Loop over sections
-for( iSec in iSections )  MakeMap( pts=areasSF, polys=sectionsSF, sec=iSec )
+for( iSec in unique(areasSF$Section) )
+  MakeMap( pts=areasSF, polys=sectionsSF, sec=iSec )
 
 ##### Tables #####
 
