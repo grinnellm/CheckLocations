@@ -244,7 +244,8 @@ MakeMap <- function( pts, polys, sec, pf ) {
     geom_sf( data=ptsSub, mapping=aes(fill=Section, shape=Inside),
              colour="transparent", shape=21, inherit.aes=FALSE, size=3,
              alpha=0.75 ) +
-    geom_sf( data=pf, inherit.aes=FALSE ) +
+    geom_sf( data=pf, inherit.aes=FALSE, colour="black", fill="transparent",
+             size=0.25 ) +
     scale_fill_viridis_d( ) +
     geom_sf_text( data=badPts, mapping=aes(label=LocationCode),
                   inherit.aes=FALSE) +
