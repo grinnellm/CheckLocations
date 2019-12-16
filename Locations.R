@@ -71,6 +71,9 @@ dirDBs <- file.path( "..", "Data" )
 #    "Herring_Shapefiles" )
 dirShape <- file.path( dirDBs, "Polygons" )
 
+# Location of the PFMA shapes
+dirPFMA <- file.path( dirShape, "PFMAs.gdb" )
+
 # Databases: remote (i.e., H:\ for hdata$) or local (e.g., C:\)
 dbLoc <- "Remote"
 
@@ -141,6 +144,13 @@ areas <- LoadAreaData( where=areaLoc ) %>%
 # Get BC land data etc (for plots)
 shapes <- LoadShapefiles( where=shapesLoc, a=areas )
 
+# Load PFMAs
+pfma <- st_read( dsn=dirPFMA, layer="DFO_BC_PFMA_SUBAREAS_50K_V3_1",
+                 quiet=TRUE ) %>%
+  select( MGNT_AREA, SUBAREA_, LABEL ) %>%
+  rename( Area=MGNT_AREA, SubArea=SUBAREA_, Name=LABEL ) %>%
+  st_transform( 4326 )
+
 ##### Main #####
 
 # Convert areas to a spatial object
@@ -159,11 +169,11 @@ sectionsSF <- shapes$secAllSPDF %>%
 ##### Figures #####
 
 # Show the maps (interactive)
-mapview( areasSF, zcol="Section", layer.name="Section" )
+# mapview( areasSF, zcol="Section", layer.name="Section" )
 # mapview( shapes$secAllSPDF, zcol="Section", layer.name="Section" )
 
 # Show points and polygons on a map
-MakeMap <- function( pts, polys, sec ) {
+MakeMap <- function( pts, polys, sec, pf ) {
   # Add a column for inside/outside pts
   pts <- pts %>%
     mutate( Inside="Ok" )
@@ -234,6 +244,8 @@ MakeMap <- function( pts, polys, sec ) {
     geom_sf( data=ptsSub, mapping=aes(fill=Section, shape=Inside),
              colour="transparent", shape=21, inherit.aes=FALSE, size=3,
              alpha=0.75 ) +
+    geom_sf( data=pf, inherit.aes=FALSE, colour="black", fill="transparent",
+             size=0.25 ) +
     scale_fill_viridis_d( ) +
     geom_sf_text( data=badPts, mapping=aes(label=LocationCode),
                   inherit.aes=FALSE) +
@@ -255,7 +267,8 @@ MakeMap <- function( pts, polys, sec ) {
 if( "All" %in% iSections )  iSections <- unique( areasSF$Section )
 
 # Loop over sections
-for( iSec in iSections )  MakeMap( pts=areasSF, polys=sectionsSF, sec=iSec )
+for( iSec in iSections )  MakeMap( pts=areasSF, polys=sectionsSF, sec=iSec,
+                                   pf=pfma )
 
 ##### Tables #####
 
