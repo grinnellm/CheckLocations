@@ -55,10 +55,10 @@ UsePackages( pkgs=c("tidyverse", "RODBC", "sp", "rgdal", "rgeos", "raster",
 ##### Controls ##### 
 
 # Sections to investigate: specify sections as c("078", "239"), or type "All"
-iSections <- c("078", "239")
+iSections <- c("All")
 
 # Select region(s): major (HG, PRD, CC, SoG, WCVI); minor (A27, A2W, JS); All
-region <- "All"
+region <- c("025")
 
 # Subset of sections (if desired, otherwise NA)
 sectionSub <- NA
