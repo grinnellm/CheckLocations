@@ -15,7 +15,7 @@
 # 
 # Requirements: 
 # Access to the database on the shared drive, and herring shapefiles. Use
-# 32-bit R to access the MS Access database (not available in RStudio).
+# 32-bit R to access the MS Access database.
 # 
 # Notes: 
 # source(file="Locations.R")
@@ -50,7 +50,7 @@ UsePackages <- function( pkgs, locn="https://cran.rstudio.com/" ) {
 # Make packages available
 UsePackages( pkgs=c("tidyverse", "RODBC", "sp", "rgdal", "rgeos", "raster",
                     "sf", "rnaturalearth", "rnaturalearthdata", "mapview",
-                    "ggmap", "maptools") )
+                    "ggmap", "maptools", "SpawnIndex") )
 
 ##### Controls ##### 
 
@@ -138,7 +138,7 @@ dir.create( csvDir )
 canada <- ne_countries( scale="large", country="canada", returnclass="sf" )
 
 # Load herring areas
-areas <- LoadAreaData( where=areaLoc ) %>%
+areas <- load_area_data( where = areaLoc, reg = "WCVI" ) %>%
   filter( Longitude<0, Latitude>0 )
 
 # Get BC land data etc (for plots)
@@ -211,7 +211,7 @@ MakeMap <- function( pts, polys, sec, pf ) {
       filter( Inside!="Ok" )
     # Write bad points to disc if they exist
     if( nrow(badPts) >= 1 )
-      write_csv( x=badPts, path=file.path(csvDir, paste(sec, "csv", sep=".")) )
+      write_csv( x=badPts, file=file.path(csvDir, paste(sec, "csv", sep=".")) )
   } else { # End if polygons, otherwise
     # Make a dummy for the plot
     badPts <- ptsSub %>%
@@ -249,9 +249,9 @@ MakeMap <- function( pts, polys, sec, pf ) {
     scale_fill_viridis_d( ) +
     geom_sf_text( data=badPts, mapping=aes(label=LocationCode),
                   inherit.aes=FALSE) +
-    labs( title=paste("Section", sec), x="Longitude", y="Latitude" ) +
-    ggsave( filename=file.path(mapDir, paste(sec, "png", sep=".")), height=9,
-            width=9 )
+    labs( title=paste("Section", sec), x="Longitude", y="Latitude" )
+  ggsave(plot = gmap, filename=file.path(mapDir, paste(sec, "png", sep=".")),
+         height=9, width=9 )
   # # Plot the map
   # gmap2 <- ggplot( data=canada ) +
   #   geom_sf( colour="transparent", fill="antiquewhite") +
