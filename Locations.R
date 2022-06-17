@@ -174,6 +174,23 @@ sectionsSF <- shapes$secAllSPDF %>%
   st_as_sf(coords = c("Longitude", "Latitude"), crs = 3347) %>%
   st_transform(4326)
 
+# TODO: Check profanity
+# dat <- spawn_all %>%
+#   select(Region, StatisticalArea, Section, LocationCode, LocationName) %>%
+#   distinct()
+# all_profane <- unique(tolower(c(
+#   lexicon::profanity_alvarez,
+#   lexicon::profanity_arr_bad,
+#   lexicon::profanity_banned,
+#   lexicon::profanity_zac_anger,
+#   lexicon::profanity_racist)))
+# bad_locs <- dat$LocationName %>%
+#   profanity(profanity_list = all_profane) %>%
+#   as_tibble() %>%
+#   filter(profanity_count > 0)
+# dat[bad_locs$element_id, ] %>%
+#   write_csv(file = "troublesome.csv")
+
 ##### Figures #####
 
 # Show the maps (interactive)
