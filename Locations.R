@@ -18,7 +18,6 @@
 #
 # References:
 #
-#
 
 ##### Housekeeping #####
 
@@ -48,10 +47,12 @@ use_packages <- function(pkgs, locn = "https://cran.rstudio.com/") {
 } # End use_packages function
 
 # Make packages available
-use_packages(pkgs = c(
-  "tidyverse", "sf", "rnaturalearth", "rnaturalearthdata", "SpawnIndex", "here",
-  "sentimentr", "lexicon", "ggmap", "ggsflabel"
-))
+use_packages(
+  pkgs = c(
+    "tidyverse", "sf", "rnaturalearth", "rnaturalearthdata", "SpawnIndex", "here",
+    "sentimentr", "lexicon", "ggmap", "ggsflabel"
+  )
+)
 
 # install.packages("devtools")
 # devtools::install_github(repo = "grinnellm/SpawnIndex")
