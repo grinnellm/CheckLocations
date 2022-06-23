@@ -6,19 +6,15 @@
 # Contact:      e-mail: Matthew.Grinnell@dfo-mpo.gc.ca | tel: (250) 756.7055
 # Project:      locations
 # Code name:    Locations.R
-# Version:      1.0
+# Version:      2.0
 # Date started: 2019-11-28
-# Date edited:  2019-11-28
+# Date edited:  2022-06-20
 #
 # Overview:
 # Investigate Locations in the new and old locations tables.
 #
 # Requirements:
-# Access to the database on the shared drive, and herring shapefiles. Use
-# 32-bit R to access the MS Access database.
-#
-# Notes:
-# source(file="Locations.R")
+# Internet to get spawn index from Open Data.
 #
 # References:
 #
@@ -28,307 +24,332 @@
 
 # General options
 rm(list = ls()) # Clear the workspace
-sTime <- Sys.time() # Start the timer
+s_time <- Sys.time() # Start the timer
 graphics.off() # Turn graphics off
 
 # Install missing packages and load required packages (if required)
-UsePackages <- function(pkgs, locn = "https://cran.rstudio.com/") {
+use_packages <- function(pkgs, locn = "https://cran.rstudio.com/") {
   # Reverse the list
-  rPkgs <- rev(pkgs)
+  r_pkgs <- rev(pkgs)
   # Identify missing (i.e., not yet installed) packages
-  newPkgs <- rPkgs[!(rPkgs %in% installed.packages()[, "Package"])]
+  new_pkgs <- r_pkgs[!(r_pkgs %in% installed.packages()[, "Package"])]
   # Install missing packages if required
-  if (length(newPkgs)) install.packages(newPkgs, repos = locn)
+  if (length(new_pkgs)) install.packages(new_pkgs, repos = locn)
   # Loop over all packages
-  for (i in 1:length(rPkgs)) {
+  for (i in seq(r_pkgs)) {
     # Load required packages using 'library'
-    eval(parse(text = paste("suppressPackageStartupMessages(library(", rPkgs[i],
-      "))",
-      sep = ""
-    )))
+    eval(
+      parse(text = paste("suppressPackageStartupMessages(library(", r_pkgs[i],
+        "))",
+        sep = ""
+      ))
+    )
   } # End i loop over package names
-} # End UsePackages function
+} # End use_packages function
 
 # Make packages available
-UsePackages(pkgs = c(
-  "tidyverse", "RODBC", "sp", "rgdal", "rgeos", "raster", "sf", "rnaturalearth",
-  "rnaturalearthdata", "mapview", "ggmap", "maptools", "SpawnIndex"
+use_packages(pkgs = c(
+  "tidyverse", "sf", "rnaturalearth", "rnaturalearthdata", "SpawnIndex", "here",
+  "sentimentr", "lexicon", "ggmap", "ggsflabel"
 ))
 
-##### Controls #####
+# install.packages("devtools")
+# devtools::install_github("yutannihilation/ggsflabel")
+# devtools::install_github(repo = "grinnellm/SpawnIndex")
 
-# Sections to investigate: specify sections as c("078", "239"), or type "All"
-iSections <- c("All")
-
-# Select region(s): major (HG, PRD, CC, SoG, WCVI); minor (A27, A2W, JS); All
-region <- "All"
-
-# Subset of sections (if desired, otherwise NA)
-sectionSub <- NA
-
-# Location of herring databases (catch, biosamples, spawn, etc)
-dirDBs <- file.path("..", "Data")
-
-# Location of the shapefiles
-# dirShape <- file.path( "\\\\dcbcpbsna01a", "hdata$", "Kristen",
-#    "Herring_Shapefiles" )
-dirShape <- file.path(dirDBs, "Polygons")
-
-# Location of the PFMA shapes
-dirPFMA <- file.path(dirShape, "PFMAs.gdb")
-
-# Databases: remote (i.e., H:\ for hdata$) or local (e.g., C:\)
-dbLoc <- "Remote"
-
-# Database name
-dbName <- "HSA_Program_v6.2.mdb"
-
-# Input coordinate reference system
-inCRS <- "+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"
-
-# Coordinate reference system (http://spatialreference.org/ref/sr-org/82/)
-outCRS <- "+proj=aea +lat_1=50 +lat_2=58.5 +lat_0=45 +lon_0=-126 +x_0=1000000
-    +y_0=0 +datum=NAD83 +units=m +no_defs +ellps=GRS80 +towgs84=0,0,0"
-
-# Geographic projection
-geoProj <- "Projection: BC Albers (NAD 1983)"
-
-# Output location for maps
-mapDir <- "Maps"
-
-# Output location for files
-csvDir <- "CSVs"
+# Suppress summarise info
+options(dplyr.summarise.inform = FALSE)
 
 ##### Parameters #####
 
-# Year range to include data (data starts at 1928; 1951 for stock assessment)
-yrRange <- 1951:2019
-
-##### Sources #####
-
-# Location and name of the location database and tables
-areaLoc <- list(
-  loc = file.path(dirDBs, dbLoc),
-  db = dbName,
-  fns = list(sections = "Sections", locations = "Location")
-)
-
-# Location(s) and names of the Sections and land shapefiles
-shapesLoc <- list(
-  locSec = file.path(dirShape),
-  locLand = file.path(dirShape),
-  fns = list(sections = "SectionsIntegrated", land = "GSHHS_h_L1_Alb")
-)
-
-##### Functions #####
-
-# Load helper functions
-source(file = file.path("..", "HerringFunctions", "Functions.R"))
-
-# Remove the output directory: maps
-if (mapDir %in% list.files()) unlink(mapDir, recursive = TRUE)
-
-# Create a directory to store maps
-dir.create(mapDir)
-
-# Remove the output directory: text
-if (csvDir %in% list.files()) unlink(csvDir, recursive = TRUE)
-
-# Create a directory to store text
-dir.create(csvDir)
-
-##### Data #####
-
-# World shapefile
-canada <- ne_countries(scale = "large", country = "canada", returnclass = "sf")
-
-# Load herring areas
-areas <- load_area_data(where = areaLoc, reg = "WCVI") %>%
-  filter(Longitude < 0, Latitude > 0)
-
-# Get BC land data etc (for plots)
-shapes <- LoadShapefiles(where = shapesLoc, a = areas)
-
-# Load PFMAs
-pfma <- st_read(
-  dsn = dirPFMA, layer = "DFO_BC_PFMA_SUBAREAS_50K_V3_1", quiet = TRUE
-) %>%
-  select(MGNT_AREA, SUBAREA_, LABEL) %>%
-  rename(Area = MGNT_AREA, SubArea = SUBAREA_, Name = LABEL) %>%
-  st_transform(4326)
-
-##### Main #####
-
-# Convert areas to a spatial object
-areasSF <- areas %>%
-  st_as_sf(coords = c("Longitude", "Latitude"), crs = 4326) %>%
-  select(SAR, Region, StatArea, Section, LocationCode, LocationName) %>%
-  mutate(
-    Section = formatC(Section, width = 3, flag = "0"),
-    StatArea = formatC(StatArea, width = 2, flag = "0")
-  ) # %>%
-# st_transform( 3347 )
-
-# Convert polygons to a spatial object
-sectionsSF <- shapes$secAllSPDF %>%
-  st_as_sf(coords = c("Longitude", "Latitude"), crs = 3347) %>%
-  st_transform(4326)
-
-# TODO: Check profanity
-# dat <- spawn_all %>%
-#   select(Region, StatisticalArea, Section, LocationCode, LocationName) %>%
-#   distinct()
-# all_profane <- unique(tolower(c(
-#   lexicon::profanity_alvarez,
-#   lexicon::profanity_arr_bad,
-#   lexicon::profanity_banned,
-#   lexicon::profanity_zac_anger,
-#   lexicon::profanity_racist)))
-# bad_locs <- dat$LocationName %>%
-#   profanity(profanity_list = all_profane) %>%
-#   as_tibble() %>%
-#   filter(profanity_count > 0)
-# dat[bad_locs$element_id, ] %>%
-#   write_csv(file = "troublesome.csv")
-
-##### Figures #####
-
-# Show the maps (interactive)
-# mapview( areasSF, zcol="Section", layer.name="Section" )
-# mapview( shapes$secAllSPDF, zcol="Section", layer.name="Section" )
-
-# Show points and polygons on a map
-MakeMap <- function(pts, polys, sec, pf) {
-  # Add a column for inside/outside pts
-  pts <- pts %>%
-    mutate(Inside = "Ok")
-  # Subset points
-  ptsSub <- pts %>%
-    filter(Section == sec) %>%
-    mutate(Section = as.character(Section))
-  # Subset polygons
-  polysSub <- polys %>%
-    filter(Section == sec)
-  # If there is a polygon
-  if (nrow(polysSub) >= 1) {
-    # Spatial overlay -- which points are in the polygon
-    ptsOver <- over(x = as(pts, "Spatial"), y = as(polysSub, "Spatial")) %>%
-      as_tibble() %>%
-      rename(SectionPolys = Section) %>%
-      mutate(
-        LocationCode = pts$LocationCode,
-        LocationName = pts$LocationName,
-        SectionPts = pts$Section
-      )
-    # Indentify points outside the boundary
-    ptsOutside <- ptsOver %>%
-      filter(is.na(SectionPolys) & SectionPts == sec)
-    # Identify points inside the boundary that aren't classified as such
-    ptsInside <- ptsOver %>%
-      filter(!is.na(SectionPolys), SectionPolys != SectionPts)
-    # Add these points to the subset of points
-    ptsSub <- ptsSub %>%
-      rbind(y = filter(pts, LocationCode %in% ptsInside$LocationCode)) %>%
-      mutate(
-        Inside = ifelse(LocationCode %in% ptsInside$LocationCode, "Yes",
-          Inside
-        ),
-        Inside = ifelse(LocationCode %in% ptsOutside$LocationCode, "No",
-          Inside
-        )
-      )
-    # Select bad pts
-    badPts <- ptsSub %>%
-      filter(Inside != "Ok")
-    # Write bad points to disc if they exist
-    if (nrow(badPts) >= 1) {
-      write_csv(x = badPts, file = file.path(csvDir, paste(sec, "csv", sep = ".")))
-    }
-  } else { # End if polygons, otherwise
-    # Make a dummy for the plot
-    badPts <- ptsSub %>%
-      filter(Inside != "Ok")
-  } # End if no polygons
-  # Determine extent: points
-  extPts <- extent(ptsSub)
-  # Determine extent: polys
-  extPolys <- extent(polysSub)
-  # Determine the overall extentext
-  ext <- c(
-    left = min(extPts@xmin, extPolys@xmin, na.rm = TRUE),
-    bottom = min(extPts@ymin, extPolys@ymin, na.rm = TRUE),
-    right = max(extPts@xmax, extPolys@xmax, na.rm = TRUE),
-    top = max(extPts@ymax, extPolys@ymax, na.rm = TRUE)
-  )
-  # Expand x to give a buffer
-  xBuf <- 0.05 * (ext["left"] - ext["right"])
-  # Expand y to give a buffer
-  yBuf <- 0.05 * (ext["top"] - ext["bottom"])
-  # Expand the extent
-  extBuf <- c(
-    ext["left"] + xBuf,
-    ext["bottom"] - yBuf,
-    ext["right"] - xBuf,
-    ext["top"] + yBuf
-  )
-  # Grab the map data
-  map <- get_map(extBuf)
-  # Plot the map
-  gmap <- ggmap(map) +
-    geom_sf(
-      data = polysSub, colour = "blue", fill = "transparent",
-      inherit.aes = FALSE
-    ) +
-    geom_sf(
-      data = ptsSub, mapping = aes(fill = Section, shape = Inside),
-      colour = "transparent", shape = 21, inherit.aes = FALSE, size = 3,
-      alpha = 0.75
-    ) +
-    geom_sf(
-      data = pf, inherit.aes = FALSE, colour = "black", fill = "transparent",
-      size = 0.25
-    ) +
-    scale_fill_viridis_d() +
-    geom_sf_text(
-      data = badPts, mapping = aes(label = LocationCode), inherit.aes = FALSE
-    ) +
-    labs(title = paste("Section", sec), x = "Longitude", y = "Latitude")
-  ggsave(
-    plot = gmap, filename = file.path(mapDir, paste(sec, "png", sep = ".")),
-    height = 9, width = 9
-  )
-  # # Plot the map
-  # gmap2 <- ggplot( data=canada ) +
-  #   geom_sf( colour="transparent", fill="antiquewhite") +
-  #   geom_sf( data=polysSub, colour="blue", fill="transparent" ) +
-  #   geom_sf( data=ptsSub, mapping=aes(fill=Section) ) +
-  #   coord_sf( xlim=c(extBuf["left"], extBuf["right"]),
-  #             ylim=c(extBuf["bottom"], extBuf["top"]) ) +
-  #   labs( title=paste("Section", sec), x="Longitude", y="Latitude" )
-  # print( gmap2 )
-} # End MakeMap function
-
-# Update sections if All
-if ("All" %in% iSections) iSections <- unique(areasSF$Section)
-
-# Loop over sections
-for (iSec in iSections) {
-  MakeMap(
-    pts = areasSF, polys = sectionsSF, sec = iSec, pf = pfma
-  )
-}
-
-##### Tables #####
-
-
+# Coordinate reference system
+epsg_crs <- 4326
 
 ##### Output #####
 
-## Save the workspace image
-# save.image( file="Image.RData"  )
+# Cache location (for saved Open Data file)
+cache_dir <- "Cache"
+
+# Create folder save Open Data
+if (!cache_dir %in% list.files(path = here())) {
+  dir.create(path = here(cache_dir))
+}
+
+# Output location for files
+csv_dir <- "CSVs"
+
+# Create folder for text files
+if (!csv_dir %in% list.files(path = here())) {
+  dir.create(path = here(csv_dir))
+}
+
+# Output location for maps
+map_dir <- "Maps"
+
+# Create folder for maps
+if (!map_dir %in% list.files(path = here())) {
+  dir.create(path = here(map_dir))
+}
+
+##### Data #####
+
+# Get BC coast
+bc_coast <- ne_countries(
+  scale = "large", returnclass = "sf", continent = "North America"
+) %>%
+  st_transform(crs = epsg_crs)
+
+# Get spawn data
+get_spawn <- function(fn,
+                      quiet = FALSE) {
+  # Check if the data exists locally
+  is_data <- fn %in% list.files(here(cache_dir))
+  # If the data is present
+  if (is_data) {
+    # Load the data
+    dat <- read_csv(file = here(cache_dir, fn), col_types = cols())
+  } else { # End if data, otherwise download it (takes a while)
+    # Grab the data and save it
+    dat <- read_csv(
+      file = paste(
+        "https://pacgis01.dfo-mpo.gc.ca", "FGPPublic",
+        "Pacific_Herring_Spawn_Index_Data",
+        "Pacific_herring_spawn_index_data_EN.csv",
+        sep = "/"
+      ),
+      col_types = cols()
+    ) %>%
+      write_csv(file = here(cache_dir, fn))
+  } # End if no data
+  # Wrangle the data
+  u_dat <- dat %>%
+    mutate(
+      StatisticalArea = formatC(StatisticalArea, width = 2, flag = "0"),
+      Section = formatC(Section, width = 3, flag = "0")
+    ) %>%
+    select(
+      Region, StatisticalArea, Section, LocationCode, LocationName,
+      Longitude, Latitude
+    ) %>%
+    distinct()
+  # Check for missing lat/long data
+  no_lat_long <- u_dat %>%
+    filter(is.na(Longitude) | is.na(Latitude)) %>%
+    select(Region, StatisticalArea, Section, LocationCode, LocationName)
+  # If not quiet
+  if (!quiet) {
+    # If missing spatial data
+    if (nrow(no_lat_long) >= 1) {
+      # Message
+      cat("There are ", nrow(no_lat_long),
+        " location(s) with missing spatial information: ",
+        "see file 'NoLatLong.csv'.",
+        call. = FALSE
+      )
+      # Write missing data to csv
+      no_lat_long %>%
+        write_csv(file = here("NoLatLong.csv"))
+    } else { # End if missing, otherwise
+      # Message
+      cat("No missing spatial data detected.\n")
+    } # End if no missing spatial data
+  } # End if not quiet
+  # Make a spatial object
+  dat_sf <- u_dat %>%
+    filter(!is.na(Longitude), !is.na(Latitude)) %>%
+    st_as_sf(coords = c("Longitude", "Latitude"), crs = epsg_crs)
+  # Return the spawn data
+  dat_sf
+} # End get_spawn function
+
+# Get spawn data
+spawn_all <- get_spawn(fn = "spawn_all.csv")
+
+# Get area data
+areas <- spawn_all %>%
+  select(Region, StatisticalArea, Section) %>%
+  as_tibble() %>%
+  select(Region, StatisticalArea, Section) %>%
+  distinct()
+
+# Load sections polygons
+data(sections)
+
+# Add spatial info to sections
+sections <- sections %>%
+  st_transform(crs = epsg_crs) %>%
+  left_join(y = areas, by = "Section") %>%
+  distinct() %>%
+  select(Region, StatisticalArea, Section) %>%
+  arrange(Region, StatisticalArea, Section)
+
+##### Main #####
+
+# Check profanity
+check_profane <- function(dat,
+                          quiet = FALSE) {
+  # Get distinct location names
+  dat <- dat %>%
+    select(Region, StatisticalArea, Section, LocationCode, LocationName) %>%
+    distinct()
+  # Get list of profane words
+  all_profane <- c(
+    profanity_alvarez, profanity_arr_bad, profanity_banned, profanity_zac_anger,
+    profanity_racist
+  ) %>%
+    tolower() %>%
+    unique()
+  # Identify potential bad names
+  bad_locs <- dat %>%
+    pull(LocationName) %>%
+    tolower() %>%
+    get_sentences() %>%
+    profanity(profanity_list = all_profane) %>%
+    as_tibble() %>%
+    filter(profanity_count > 0)
+  # Vector of names that get flagged, but are actually OK
+  names_ok <- c(
+    "Hook Pt", "Joachim Spit", "Swallow Is", "Shingle Spit", "Rebecca Spit",
+    "Fanny Bay", "Willy Is", "Goose Spit", "Walker Hook", "Steamer Cv",
+    "Antons Spit", "Beaver Hrbr (Ft Rupert)", "Gay Pass", "Bull Hrbr",
+    "Bull Cv", "Beaver Cv", "Finis Nook"
+  )
+  # Get bad names
+  bad_dat <- dat[bad_locs$element_id, ] %>%
+    as_tibble() %>%
+    filter(!LocationName %in% names_ok) %>%
+    select(Region, StatisticalArea, Section, LocationCode, LocationName)
+  # If not quiet
+  if (!quiet) {
+    # If profanity
+    if (nrow(bad_dat) >= 1) {
+      # Message
+      cat("There are ", nrow(bad_dat),
+        " location(s) with possible profane names: see file 'Profane.csv'.",
+        call. = FALSE
+      )
+      # Write bad names to csv
+      bad_dat %>%
+        write_csv(file = here("Profane.csv"))
+    } else { # End if profanity, otherwise
+      # Message
+      cat("No profanity detected.\n")
+    } # End if no profanity
+  } # End if not quiet
+  # Return bad names
+  bad_dat$LocationName
+} # End check_profane function
+
+# Check for potentially profane manes
+locs_bad_names <- check_profane(dat = spawn_all)
+
+# Check spatial overlay
+check_overlay <- function(pts,
+                          poly,
+                          buff = 2000,
+                          quiet = FALSE,
+                          output = FALSE) {
+
+  # Check overlay
+  inside <- st_intersects(x = pts, y = poly, sparse = FALSE)
+  # Add to points
+  pts <- pts %>%
+    mutate(Inside = inside[, 1])
+  # Section extent
+  ext_poly <- poly %>%
+    st_buffer(dist = buff) %>%
+    st_bbox()
+  # Points extent
+  ext_pts <- pts %>%
+    st_buffer(dist = buff) %>%
+    st_bbox()
+  # Overall extent
+  ext_all <- c(
+    min(ext_poly$xmin, ext_pts$xmin),
+    min(ext_poly$ymin, ext_pts$ymin),
+    max(ext_poly$xmax, ext_pts$xmax),
+    max(ext_poly$ymax, ext_pts$ymax)
+  )
+  # Get map tiles (no messages)
+  suppressMessages(
+    my_map <- get_stamenmap(
+      bbox = ext_all, zoom = 10, maptype = "terrain", messaging = FALSE
+    )
+  )
+  # Determine whether to make output
+  do_output <- any(output | any(!pts$Inside))
+  # If making output
+  if (do_output) {
+    # Plot the map
+    map <- ggmap(my_map) +
+      geom_sf(
+        data = poly, fill = "transparent", colour = "black", size = 0.5,
+        inherit.aes = FALSE
+      ) +
+      geom_sf(
+        data = pts, size = 3, mapping = aes(colour = Inside),
+        inherit.aes = FALSE
+      ) +
+      geom_sf_label_repel(
+        data = pts %>% filter(!Inside), mapping = aes(label = LocationCode),
+        alpha = 0.75, inherit.aes = FALSE
+      ) +
+      scale_colour_viridis_d() +
+      labs(
+        title = paste("Section", unique(poly$Section)),
+        x = "Longitude",
+        y = "Latitude"
+      ) +
+      guides(colour = FALSE) +
+      theme(panel.border = element_rect(colour = "black", fill = "transparent"))
+    # Save the plot
+    ggsave(
+      plot = map, width = 7, height = 7,
+      filename = here(
+        map_dir,
+        paste("Section", unique(poly$Section), ".png", sep = "")
+      ),
+    )
+    # Save the points
+    pts <- pts %>%
+      filter(!Inside) %>%
+      select(Region, StatisticalArea, Section, LocationCode, LocationName) %>%
+      write_csv(file = here(
+        csv_dir,
+        paste("Section", unique(poly$Section), ".csv", sep = "")
+      ))
+    # Message
+    cat(
+      "Point(s) outside Section ", unique(poly$Section), " polygon.\n",
+      sep = ""
+    )
+  } else { # End if output, otherwise
+    cat("All points OK in Section ", unique(poly$Section), ".\n", sep = "")
+  } # End if no output
+} # End check_overlay function
+
+# Determine unique sections
+u_sections <- unique(spawn_all$Section)
+
+# Message
+cat("Spatial overlay for", length(u_sections), "sections:\n")
+
+# Loop over sections
+for (i in seq(u_sections)) {
+  # Get ith section
+  i_section <- u_sections[i]
+  # Get spawn data for section i
+  i_spawn <- spawn_all %>%
+    filter(Section == i_section)
+  # Get section i polygon
+  i_polygon <- sections %>%
+    filter(Section == i_section)
+  # Spatial overlay
+  check_overlay(pts = i_spawn, poly = i_polygon)
+} # End i loop over sections
 
 ##### End #####
 
 # Print end of file message and elapsed time
 cat("End of file: ")
-print(Sys.time() - sTime)
+print(Sys.time() - s_time)
