@@ -1,7 +1,13 @@
+# R files
 .Rproj.user/
 .Rhistory
 .RData
+
+# Folders
+Cache/
 CSVs/
-*.csv
 Maps/
+
+# Files
+*.csv
 *.png
