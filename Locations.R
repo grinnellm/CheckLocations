@@ -50,7 +50,7 @@ use_packages <- function(pkgs, locn = "https://cran.rstudio.com/") {
 use_packages(
   pkgs = c(
     "tidyverse", "sf", "rnaturalearth", "rnaturalearthdata", "SpawnIndex",
-    "here", "sentimentr", "lexicon", "ggmap"
+    "here", "sentimentr", "lexicon", "ggmap", "ggsflabel"
   )
 )
 
@@ -290,7 +290,7 @@ check_overlay <- function(pts,
           data = pts, size = 3, mapping = aes(colour = Inside),
           inherit.aes = FALSE
         ) +
-        geom_sf_label(
+        geom_sf_label_repel(
           data = pts %>% filter(!Inside), mapping = aes(label = LocationCode),
           alpha = 0.75, inherit.aes = FALSE
         ) +
