@@ -40,8 +40,8 @@ use_packages <- function(pkgs, locn = "https://cran.rstudio.com/") {
     # Load required packages using 'library'
     eval(
       parse(text = paste("suppressPackageStartupMessages(library(", r_pkgs[i],
-        "))",
-        sep = ""
+                         "))",
+                         sep = ""
       ))
     )
   } # End i loop over package names
@@ -54,7 +54,6 @@ use_packages(pkgs = c(
 ))
 
 # install.packages("devtools")
-# devtools::install_github("yutannihilation/ggsflabel")
 # devtools::install_github(repo = "grinnellm/SpawnIndex")
 
 # Suppress summarise info
@@ -142,9 +141,8 @@ get_spawn <- function(fn,
     if (nrow(no_lat_long) >= 1) {
       # Message
       cat("There are ", nrow(no_lat_long),
-        " location(s) with missing spatial information: ",
-        "see file 'NoLatLong.csv'.",
-        call. = FALSE
+          " location(s) with missing spatial information: ",
+          "see file 'NoLatLong.csv'."
       )
       # Write missing data to csv
       no_lat_long %>%
@@ -199,14 +197,16 @@ check_profane <- function(dat,
   ) %>%
     tolower() %>%
     unique()
-  # Identify potential bad names
-  bad_locs <- dat %>%
-    pull(LocationName) %>%
-    tolower() %>%
-    get_sentences() %>%
-    profanity(profanity_list = all_profane) %>%
-    as_tibble() %>%
-    filter(profanity_count > 0)
+  # Identify potential bad names (no warnings)
+  suppressWarnings(
+    bad_locs <- dat %>%
+      pull(LocationName) %>%
+      tolower() %>%
+      get_sentences() %>%
+      profanity(profanity_list = all_profane) %>%
+      as_tibble() %>%
+      filter(profanity_count > 0)
+  )
   # Vector of names that get flagged, but are actually OK
   names_ok <- c(
     "Hook Pt", "Joachim Spit", "Swallow Is", "Shingle Spit", "Rebecca Spit",
@@ -219,23 +219,23 @@ check_profane <- function(dat,
     as_tibble() %>%
     filter(!LocationName %in% names_ok) %>%
     select(Region, StatisticalArea, Section, LocationCode, LocationName)
-  # If not quiet
-  if (!quiet) {
-    # If profanity
-    if (nrow(bad_dat) >= 1) {
+  # If profanity
+  if (nrow(bad_dat) >= 1) {
+    # Write bad names to csv
+    bad_dat %>%
+      write_csv(file = here("Profane.csv"))
+    # If messages
+    if(!quiet){
       # Message
-      cat("There are ", nrow(bad_dat),
-        " location(s) with possible profane names: see file 'Profane.csv'.",
-        call. = FALSE
-      )
-      # Write bad names to csv
-      bad_dat %>%
-        write_csv(file = here("Profane.csv"))
-    } else { # End if profanity, otherwise
+      cat("Location(s) with possible profane names: see file 'Profane.csv'.\n")
+    } # End if not quiet
+  } else { # End if profanity, otherwise
+    # If not quiet and no profanity
+    if (!quiet) {
       # Message
       cat("No profanity detected.\n")
-    } # End if no profanity
-  } # End if not quiet
+    } # End if not quiet
+  } # End if no profanity
   # Return bad names
   bad_dat$LocationName
 } # End check_profane function
@@ -247,9 +247,7 @@ locs_bad_names <- check_profane(dat = spawn_all)
 check_overlay <- function(pts,
                           poly,
                           buff = 2000,
-                          quiet = FALSE,
-                          output = FALSE) {
-
+                          quiet = FALSE) {
   # Check overlay
   inside <- st_intersects(x = pts, y = poly, sparse = FALSE)
   # Add to points
@@ -276,39 +274,44 @@ check_overlay <- function(pts,
       bbox = ext_all, zoom = 10, maptype = "terrain", messaging = FALSE
     )
   )
-  # Determine whether to make output
-  do_output <- any(output | any(!pts$Inside))
-  # If making output
-  if (do_output) {
-    # Plot the map
-    map <- ggmap(my_map) +
-      geom_sf(
-        data = poly, fill = "transparent", colour = "black", size = 0.5,
-        inherit.aes = FALSE
-      ) +
-      geom_sf(
-        data = pts, size = 3, mapping = aes(colour = Inside),
-        inherit.aes = FALSE
-      ) +
-      geom_sf_label_repel(
-        data = pts %>% filter(!Inside), mapping = aes(label = LocationCode),
-        alpha = 0.75, inherit.aes = FALSE
-      ) +
-      scale_colour_viridis_d() +
-      labs(
-        title = paste("Section", unique(poly$Section)),
-        x = "Longitude",
-        y = "Latitude"
-      ) +
-      guides(colour = FALSE) +
-      theme(panel.border = element_rect(colour = "black", fill = "transparent"))
-    # Save the plot
-    ggsave(
-      plot = map, width = 7, height = 7,
-      filename = here(
-        map_dir,
-        paste("Section", unique(poly$Section), ".png", sep = "")
-      ),
+  # If points outside
+  if (any(!pts$Inside)) {
+    # No messages
+    suppressMessages(
+      # Plot the map
+      map <- ggmap(my_map) +
+        geom_sf(
+          data = poly, fill = "transparent", colour = "black", size = 0.5,
+          inherit.aes = FALSE
+        ) +
+        geom_sf(
+          data = pts, size = 3, mapping = aes(colour = Inside),
+          inherit.aes = FALSE
+        ) +
+        geom_sf_label_repel(
+          data = pts %>% filter(!Inside), mapping = aes(label = LocationCode),
+          alpha = 0.75, inherit.aes = FALSE
+        ) +
+        scale_colour_viridis_d() +
+        labs(
+          title = paste("Section", unique(poly$Section)),
+          x = "Longitude",
+          y = "Latitude"
+        ) +
+        guides(colour = "none") +
+        theme(
+          panel.border = element_rect(colour = "black", fill = "transparent")
+        )
+    ) # End of no messages
+    # Save the plot (no warnings)
+    suppressWarnings(
+      ggsave(
+        plot = map, width = 7, height = 7,
+        filename = here(
+          map_dir,
+          paste("Section", unique(poly$Section), ".png", sep = "")
+        ),
+      )
     )
     # Save the points
     pts <- pts %>%
@@ -318,14 +321,17 @@ check_overlay <- function(pts,
         csv_dir,
         paste("Section", unique(poly$Section), ".csv", sep = "")
       ))
-    # Message
-    cat(
-      "Point(s) outside Section ", unique(poly$Section), " polygon.\n",
-      sep = ""
-    )
-  } else { # End if output, otherwise
-    cat("All points OK in Section ", unique(poly$Section), ".\n", sep = "")
-  } # End if no output
+    # If messages
+    if(!quiet){
+      # Message
+      cat("Point(s) outside Section", unique(poly$Section), "polygon.\n")
+    } # End if messages
+  } else {# End if points outside, otherwise
+    # If messages and all points OK
+    if(!quiet){
+      cat("All points inside Section", unique(poly$Section), "polygon.\n")
+    } # End if messages and all points OK
+  } # End if all points inside
 } # End check_overlay function
 
 # Determine unique sections
