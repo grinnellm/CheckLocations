@@ -40,8 +40,8 @@ use_packages <- function(pkgs, locn = "https://cran.rstudio.com/") {
     # Load required packages using 'library'
     eval(
       parse(text = paste("suppressPackageStartupMessages(library(", r_pkgs[i],
-                         "))",
-                         sep = ""
+        "))",
+        sep = ""
       ))
     )
   } # End i loop over package names
@@ -140,9 +140,10 @@ get_spawn <- function(fn,
     # If missing spatial data
     if (nrow(no_lat_long) >= 1) {
       # Message
-      cat("There are ", nrow(no_lat_long),
-          " location(s) with missing spatial information: ",
-          "see file 'NoLatLong.csv'."
+      cat(
+        "There are ", nrow(no_lat_long),
+        " location(s) with missing spatial information: ",
+        "see file 'NoLatLong.csv'."
       )
       # Write missing data to csv
       no_lat_long %>%
@@ -225,7 +226,7 @@ check_profane <- function(dat,
     bad_dat %>%
       write_csv(file = here("Profane.csv"))
     # If messages
-    if(!quiet){
+    if (!quiet) {
       # Message
       cat("Location(s) with possible profane names: see file 'Profane.csv'.\n")
     } # End if not quiet
@@ -322,13 +323,13 @@ check_overlay <- function(pts,
         paste("Section", unique(poly$Section), ".csv", sep = "")
       ))
     # If messages
-    if(!quiet){
+    if (!quiet) {
       # Message
       cat("Point(s) outside Section", unique(poly$Section), "polygon.\n")
     } # End if messages
-  } else {# End if points outside, otherwise
+  } else { # End if points outside, otherwise
     # If messages and all points OK
-    if(!quiet){
+    if (!quiet) {
       cat("All points inside Section", unique(poly$Section), "polygon.\n")
     } # End if messages and all points OK
   } # End if all points inside
