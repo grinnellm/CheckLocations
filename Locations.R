@@ -56,6 +56,7 @@ use_packages(
 
 # install.packages("devtools")
 # devtools::install_github(repo = "grinnellm/SpawnIndex")
+# devtools::install_github(repo = "yutannihilation/ggsflabel")
 
 # Suppress summarise info
 options(dplyr.summarise.inform = FALSE)
@@ -70,7 +71,7 @@ epsg_crs <- 4326
 # Cache location (for saved Open Data file)
 cache_dir <- "Cache"
 
-# Create folder save Open Data
+# Create folder to save Open Data
 if (!cache_dir %in% list.files(path = here())) {
   dir.create(path = here(cache_dir))
 }
