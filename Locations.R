@@ -101,7 +101,7 @@ bc_coast <- ne_countries(
   st_transform(crs = epsg_crs)
 
 # Get spawn data
-get_spawn <- function(fn,
+get_spawn <- function(fn = "OpenDataEng.csv",
                       quiet = FALSE) {
   # Check if the data exists locally
   is_data <- fn %in% list.files(here(cache_dir))
@@ -164,7 +164,7 @@ get_spawn <- function(fn,
 } # End get_spawn function
 
 # Get spawn data
-spawn_all <- get_spawn(fn = "spawn_all.csv")
+spawn_all <- get_spawn()
 
 # Get area data
 areas <- spawn_all %>%
